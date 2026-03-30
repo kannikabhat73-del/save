@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Event Report Generator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-800 min-h-screen flex items-center justify-center p-6">
+
+<div class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl shadow-lg w-full max-w-3xl text-white">
+
+<h2 class="text-3xl font-bold mb-6 text-center">Create Event Report</h2>
+
+<!-- PAGE 1 -->
+<div id="page1" class="space-y-4">
+
+<input type="text" id="program" placeholder="Program Name"
+class="w-full p-3 rounded-lg bg-white/20 outline-none" required>
+
+<input type="text" id="coordination" placeholder="Coordination Name"
+class="w-full p-3 rounded-lg bg-white/20 outline-none" required>
+
+<input type="text" id="department" placeholder="Department Name"
+class="w-full p-3 rounded-lg bg-white/20 outline-none" required>
+
+<input type="text" id="venue" placeholder="Venue"
+class="w-full p-3 rounded-lg bg-white/20 outline-none" required>
+
+<!-- Date From - To -->
+<div class="grid grid-cols-2 gap-4">
+<input type="date" id="dateFrom"
+class="w-full p-3 rounded-lg bg-white/20 outline-none" required>
+
+<input type="date" id="dateTo"
+class="w-full p-3 rounded-lg bg-white/20 outline-none">
+</div>
+
+<!-- Time From - To -->
+<div class="grid grid-cols-2 gap-4">
+<input type="time" id="timeFrom"
+class="w-full p-3 rounded-lg bg-white/20 outline-none" required>
+
+<input type="time" id="timeTo"
+class="w-full p-3 rounded-lg bg-white/20 outline-none" required>
+</div>
+
+<input type="number" id="participants" placeholder="Number of Participants"
+class="w-full p-3 rounded-lg bg-white/20 outline-none" required>
+
+<button onclick="nextPage()"
+class="w-full bg-indigo-500 hover:bg-indigo-600 p-3 rounded-lg font-semibold">
+Next
+</button>
+
+</div>
+
+<!-- PAGE 2 -->
+<div id="page2" class="space-y-4 hidden">
+
+<input type="text" id="guestName" placeholder="Guest Name"
+class="w-full p-3 rounded-lg bg-white/20 outline-none">
+
+<input type="text" id="guestDesignation" placeholder="Guest Designation"
+class="w-full p-3 rounded-lg bg-white/20 outline-none">
+
+<textarea id="description" placeholder="Event Description"
+class="w-full p-3 rounded-lg bg-white/20 outline-none"></textarea>
+
+<p class="text-sm text-gray-200">Hold Ctrl (or Cmd) to select multiple images</p>
+
+<input type="file" id="images" multiple accept="image/*"
+class="w-full p-3 rounded-lg bg-white/20 outline-none">
+
+<div class="flex gap-4">
+<button onclick="prevPage()"
+class="w-1/2 bg-gray-500 hover:bg-gray-600 p-3 rounded-lg font-semibold">
+Back
+</button>
+
+<button onclick="generateReport()"
+class="w-1/2 bg-green-500 hover:bg-green-600 p-3 rounded-lg font-semibold">
+Generate Report
+</button>
+</div>
+
+</div>
+
+<!-- REPORT OUTPUT -->
+<div id="reportOutput" class="mt-8 hidden bg-white text-black p-6 rounded-xl"></div>
+
+</div>
+
+<script>
+
+// 🔴 Disable / Enable buttons
+function toggleButtons(disable = true){
+  const buttons = document.querySelectorAll("button");
+  buttons.forEach(btn=>{
+    btn.disabled = disable;
+    btn.style.opacity = disable ? "0.6" : "1";
+    btn.style.cursor = disable ? "not-allowed" : "pointer";
+  });
+}
+
+function nextPage(){
+const requiredFields = ["program","coordination","department","venue","dateFrom","timeFrom","timeTo","participants"];
+for(let id of requiredFields){
+if(!document.getElementById(id).value){
+alert("Please fill all required fields.");
+return;
+}
+}
+document.getElementById("page1").classList.add("hidden");
+document.getElementById("page2").classList.remove("hidden");
+}
+
+function prevPage(){
+document.getElementById("page2").classList.add("hidden");
+document.getElementById("page1").classList.remove("hidden");
+}
+
+function generateReport(){
+
+const program = document.getElementById("program").value;
+const coordination = document.getElementById("coordination").value;
+const department = document.getElementById("department").value;
+const venue = document.getElementById("venue").value;
+const participants = document.getElementById("participants").value;
+
+const dateFrom = document.getElementById("dateFrom").value;
+const dateTo = document.getElementById("dateTo").value;
+
+const timeFromRaw = document.getElementById("timeFrom").value;
+const timeToRaw = document.getElementById("timeTo").value;
+
+if(dateTo && dateFrom > dateTo){
+alert("End date cannot be before start date.");
+return;
+}
+
+if(!dateTo && timeFromRaw >= timeToRaw){
+alert("End time must be after start time.");
+return;
+}
+
+const formattedDateFrom = new Date(dateFrom).toLocaleDateString('en-GB');
+const formattedDateTo = dateTo ? new Date(dateTo).toLocaleDateString('en-GB') : null;
+const displayDate = formattedDateTo ? `${formattedDateFrom} to ${formattedDateTo}` : formattedDateFrom;
+
+const timeFrom = new Date(`1970-01-01T${timeFromRaw}`).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+const timeTo = new Date(`1970-01-01T${timeToRaw}`).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+
+const guestName = document.getElementById("guestName").value;
+const guestDesignation = document.getElementById("guestDesignation").value;
+const description = document.getElementById("description").value;
+
+const imageFiles = document.getElementById("images").files;
+let imagePreview = "";
+
+for(let i=0; i<imageFiles.length; i++){
+const imageURL = URL.createObjectURL(imageFiles[i]);
+imagePreview += `<img src="${imageURL}" class="w-full h-60 object-cover rounded-lg shadow mb-3">`;
+}
+
+const output = document.getElementById("reportOutput");
+
+output.innerHTML = `
+<h3 class="text-2xl font-bold mb-4 text-center">Event Report</h3>
+
+<div class="space-y-1">
+<p><strong>Program Name :</strong> ${program}</p>
+<p><strong>Department :</strong> ${department}</p>
+<p><strong>Coordination :</strong> ${coordination}</p>
+<p><strong>Venue :</strong> ${venue}</p>
+<p><strong>Date :</strong> ${displayDate}</p>
+<p><strong>Time :</strong> ${timeFrom} to ${timeTo}</p>
+<p><strong>Number of Participants :</strong> ${participants}</p>
+<p><strong>Chief Guest :</strong> ${guestName}</p>
+<p><strong>Designation :</strong> ${guestDesignation}</p>
+</div>
+
+<hr class="my-4">
+
+<p class="text-justify leading-relaxed">
+The program titled "<strong>${program}</strong>" was successfully organized by the 
+<strong>${department}</strong> department under the guidance of 
+<strong>${coordination}</strong>. The event was conducted at 
+<strong>${venue}</strong> on <strong>${displayDate}</strong> between 
+<strong>${timeFrom}</strong> and <strong>${timeTo}</strong> with a total of 
+<strong>${participants}</strong> participants. The event was graced by 
+<strong>${guestName}</strong>, ${guestDesignation}. 
+${description} The program concluded successfully.
+</p>
+
+<div class="grid md:grid-cols-2 gap-4 mt-6">
+${imagePreview}
+</div>
+
+<div class="flex gap-4 mt-6">
+<button onclick="editReport()" class="w-1/2 bg-yellow-500 p-3 rounded-lg text-white">Edit</button>
+<button onclick="saveReport()" class="w-1/2 bg-blue-500 p-3 rounded-lg text-white">Save</button>
+</div>
+`;
+
+output.classList.remove("hidden");
+document.getElementById("page2").classList.add("hidden");
+}
+
+// EDIT
+function editReport(){
+document.getElementById("reportOutput").classList.add("hidden");
+document.getElementById("page1").classList.remove("hidden");
+}
+
+// SAVE
+function saveReport(){
+
+toggleButtons(true); // 🔥 disable all buttons
+
+const imageFiles = document.getElementById("images").files;
+
+if(imageFiles.length > 10){
+alert("Max 10 images allowed");
+toggleButtons(false);
+return;
+}
+
+let images = [];
+let loaded = 0;
+
+if(imageFiles.length === 0){
+sendData([]);
+} else {
+
+for(let i=0;i<imageFiles.length;i++){
+
+const reader = new FileReader();
+
+reader.onload = function(e){
+images.push(e.target.result);
+loaded++;
+
+if(loaded === imageFiles.length){
+sendData(images);
+}
+};
+
+reader.readAsDataURL(imageFiles[i]);
+}
+}
+
+function sendData(images){
+
+const clone = document.getElementById("reportOutput").cloneNode(true);
+clone.querySelectorAll("button").forEach(btn=>btn.remove());
+
+const content = clone.innerHTML;
+
+// 🔥 NEW URL HERE
+fetch("https://script.google.com/macros/s/AKfycbyTUVFLhdHtAidGSej-AvVVyrHv0hTvKPGL0BD26L7XymMS621x0QfwU7HhC3NZg2AK/exec",{
+method:"POST",
+body: JSON.stringify({
+program: document.getElementById("program").value,
+department: document.getElementById("department").value,
+date: document.getElementById("dateFrom").value,
+content: content,
+images: images
+})
+})
+.then(res=>res.text())
+.then(msg=>{
+toggleButtons(false); // 🔥 enable again
+alert(msg);
+})
+.catch(()=>{
+toggleButtons(false);
+alert("Error saving!");
+});
+
+}
+
+}
+
+</script>
+
+</body>
+</html>

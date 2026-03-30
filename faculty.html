@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Faculty Explorer</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-900 text-white p-6">
+
+<h2 class="text-3xl font-bold mb-4 flex justify-between items-center">
+  📁 Faculty Explorer
+  <a href="https://drive.google.com/drive/folders/1AxdFB-qHNSBP8r3LIlTexfwBS0OHJtlG" target="_blank"
+     class="bg-green-400 px-3 py-1 rounded hover:bg-green-300">Go to Drive</a>
+</h2>
+
+<input type="text" id="searchInput" placeholder="Search files..."
+class="p-2 text-black rounded mb-4 w-full" oninput="searchFiles()">
+
+<div id="loading" class="space-y-3">
+  <div class="h-6 bg-gray-700 rounded animate-pulse"></div>
+  <div class="h-6 bg-gray-700 rounded animate-pulse"></div>
+  <div class="h-6 bg-gray-700 rounded animate-pulse"></div>
+</div>
+
+<div id="explorer" class="space-y-2 hidden"></div>
+<h1 id="noData" class="hidden text-center text-3xl mt-10">No file found</h1>
+
+<script>
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyTUVFLhdHtAidGSej-AvVVyrHv0hTvKPGL0BD26L7XymMS621x0QfwU7HhC3NZg2AK/exec";
+let fullData = [];
+
+// LOAD FILES
+async function loadFiles() {
+  document.getElementById("loading").classList.remove("hidden");
+  document.getElementById("explorer").classList.add("hidden");
+  try {
+    const res = await fetch(WEB_APP_URL);
+    const data = await res.json();
+    fullData = data;
+    showNestedExplorer();
+  } catch {
+    document.getElementById("explorer").innerHTML = "<p class='text-red-400 text-center'>Failed to load data</p>";
+  }
+  document.getElementById("loading").classList.add("hidden");
+  document.getElementById("explorer").classList.remove("hidden");
+}
+
+// CREATE FOLDER ELEMENT
+function createFolder(name) {
+  const div = document.createElement("div");
+  div.className = "ml-4 mt-2";
+
+  const header = document.createElement("div");
+  header.className = "cursor-pointer font-semibold hover:text-yellow-400";
+  header.innerText = "📁 " + name;
+
+  const content = document.createElement("div");
+  content.className = "ml-4 mt-1 hidden";
+
+  header.onclick = () => content.classList.toggle("hidden"); // single click toggle
+
+  div.appendChild(header);
+  div.appendChild(content);
+  return div;
+}
+
+// SHOW EXPLORER WITH SEARCH SUPPORT
+function showNestedExplorer(searchTerm = "") {
+  const container = document.getElementById("explorer");
+  container.innerHTML = "";
+  const term = searchTerm.toLowerCase().replace(/\s+/g,"");
+  let found = false;
+
+  // BUILD HIERARCHY
+  const hierarchy = {};
+  fullData.forEach(ev => {
+    if (!hierarchy[ev.dept]) hierarchy[ev.dept] = {};
+    if (!hierarchy[ev.dept][ev.year]) hierarchy[ev.dept][ev.year] = {};
+    if (!hierarchy[ev.dept][ev.year][ev.month]) hierarchy[ev.dept][ev.year][ev.month] = {};
+    hierarchy[ev.dept][ev.year][ev.month][ev.event] = ev.files;
+  });
+
+  for (const dept in hierarchy) {
+    const deptDiv = createFolder(dept);
+    container.appendChild(deptDiv);
+    let deptMatch = dept.toLowerCase().includes(term);
+
+    for (const year in hierarchy[dept]) {
+      const yearDiv = createFolder(year);
+      deptDiv.children[1].appendChild(yearDiv);
+      let yearMatch = year.toLowerCase().includes(term);
+
+      for (const month in hierarchy[dept][year]) {
+        const monthDiv = createFolder(month);
+        yearDiv.children[1].appendChild(monthDiv);
+        let monthMatch = month.toLowerCase().includes(term);
+
+        for (const event in hierarchy[dept][year][month]) {
+          const eventDiv = createFolder(event);
+          monthDiv.children[1].appendChild(eventDiv);
+          let eventMatch = event.toLowerCase().includes(term);
+
+          const imageContainer = document.createElement("div");
+          imageContainer.className = "grid grid-cols-2 md:grid-cols-4 gap-4 mt-2";
+          const pdfContainer = document.createElement("div");
+
+          hierarchy[dept][year][month][event].forEach(f => {
+            const fileMatch = f.name.toLowerCase().includes(term);
+            if (searchTerm && !(fileMatch || deptMatch || yearMatch || monthMatch || eventMatch)) return;
+
+            found = true; deptMatch = yearMatch = monthMatch = eventMatch = true;
+
+            const fileDiv = document.createElement("div");
+
+            if (f.type.includes("image")) {
+              fileDiv.innerHTML = `<div class="flex flex-col items-center">
+                <img src="${f.url}" class="w-full h-40 object-cover rounded-lg shadow-md">
+                <p class="text-sm mt-1 text-center">${f.name}</p>
+                <div class="mt-2 flex gap-2 flex-wrap justify-center">
+                  <button onclick='renameFile("${f.name}")' class="bg-yellow-500 px-2 py-1 rounded text-white">Rename</button>
+                  <button onclick='deleteFile("${f.name}")' class="bg-red-500 px-2 py-1 rounded text-white">Delete</button>
+                  <a href="${f.url}" target="_blank" class="bg-green-500 px-2 py-1 rounded text-white">Open</a>
+                </div></div>`;
+              imageContainer.appendChild(fileDiv);
+            } else if (f.type.includes("pdf")) {
+              fileDiv.className = "p-2 mt-2 flex justify-between items-center";
+              fileDiv.innerHTML = `<span>📄 ${f.name} (${f.date})</span>
+                <div class="space-x-2">
+                  <a href="${f.url}" target="_blank" class="bg-blue-500 px-2 py-1 rounded text-white">Open</a>
+                  <button onclick='renameFile("${f.name}")' class="bg-yellow-500 px-2 py-1 rounded text-white">Rename</button>
+                  <button onclick='deleteFile("${f.name}")' class="bg-red-500 px-2 py-1 rounded text-white">Delete</button>
+                </div>`;
+              pdfContainer.appendChild(fileDiv);
+            }
+          });
+
+          if (eventMatch) {
+            eventDiv.children[1].appendChild(pdfContainer);
+            eventDiv.children[1].appendChild(imageContainer);
+            if (searchTerm) eventDiv.children[1].classList.remove("hidden"); // auto-expand on search
+          } else eventDiv.style.display = "none";
+        }
+
+        if (!monthMatch) monthDiv.style.display = "none";
+        if (searchTerm && monthMatch) monthDiv.children[1].classList.remove("hidden");
+      }
+
+      if (!yearMatch) yearDiv.style.display = "none";
+      if (searchTerm && yearMatch) yearDiv.children[1].classList.remove("hidden");
+    }
+
+    if (!deptMatch) deptDiv.style.display = "none";
+    if (searchTerm && deptMatch) deptDiv.children[1].classList.remove("hidden");
+  }
+
+  document.getElementById("noData").classList.toggle("hidden", found);
+}
+
+// DELETE & RENAME
+function deleteFile(name){
+  if(confirm("Delete this file?")){
+    fetch(WEB_APP_URL,{
+      method:"POST",
+      body: JSON.stringify({ action:"delete", name:name })
+    }).then(()=>loadFiles());
+  }
+}
+function renameFile(name){
+  const newName = prompt("Enter new name:");
+  if(newName){
+    fetch(WEB_APP_URL,{
+      method:"POST",
+      body: JSON.stringify({ action:"rename", oldName:name, newName:newName })
+    }).then(()=>loadFiles());
+  }
+}
+
+// SEARCH INPUT
+function searchFiles(){
+  const term = document.getElementById("searchInput").value.trim();
+  showNestedExplorer(term);
+}
+
+// INITIAL LOAD
+window.onload = loadFiles;
+</script>
+
+</body>
+</html>
